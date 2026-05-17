@@ -1,0 +1,36 @@
+{
+  "started_at": "2026-05-11T09:22:43.706550",
+  "input": "/mnt/user-data/uploads/penerimaan_clean.csv",
+  "date_mode": "combine",
+  "input_rows": 279763,
+  "input_cols": 28,
+  "dropped_cols": [
+    "lembaga",
+    "_source_file",
+    "_donor_consolidated",
+    "telp_is_synthetic",
+    "donatur_id_original"
+  ],
+  "dropped_outlier_dates": 0,
+  "split_stats": {
+    "per_year": {
+      "2021": 34946,
+      "2022": 37704,
+      "2023": 24390,
+      "2024": 51899,
+      "2025": 71258,
+      "2026": 59566
+    },
+    "full_rows": 279763,
+    "files_written": [
+      "penerimaan_2021.csv",
+      "penerimaan_2022.csv",
+      "penerimaan_2023.csv",
+      "penerimaan_2024.csv",
+      "penerimaan_2025.csv",
+      "penerimaan_2026.csv",
+      "penerimaan_full.csv"
+    ]
+  },
+  "finished_at": "2026-05-11T09:23:05.645587"
+}

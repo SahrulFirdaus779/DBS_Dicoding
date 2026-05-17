@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.pyo
+*.pkl
+
+# Virtual environments
+.env/
+.venv/
+venv/
+services/web_dashboard/env/
+
+# Node
+node_modules/
+.next/
+out/
+dist/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Logs
+*.log
+
+# Data exports (MongoDB dumps can be huge; track with Git LFS if committing)

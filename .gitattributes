@@ -1,0 +1,2 @@
+data/raw/mongodb_export/*.jsonl filter=lfs diff=lfs merge=lfs -text
+data/raw/mongodb_export/*.json filter=lfs diff=lfs merge=lfs -text

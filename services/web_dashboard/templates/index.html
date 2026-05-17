@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>ZakatSight - Internal Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --color-background-primary: #FFFFFF;
+      --color-background-secondary: #F8FAFC;
+      --color-background-tertiary: #F1F5F9;
+      --color-border-secondary: #CBD5E1;
+      --color-border-tertiary: #E2E8F0;
+      --color-text-primary: #0F172A;
+      --color-text-secondary: #64748B;
+      --font-sans: 'Plus Jakarta Sans', sans-serif;
+      --font-serif: 'Lora', serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--font-sans); }
+    body { background-color: #E2E8F0; padding: 20px; display: flex; justify-content: center; }
+    
+    .dash { width: 100%; max-width: 1400px; background: var(--color-background-tertiary); border: 1px solid var(--color-border-tertiary); border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+    
+    .topbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 28px; background: var(--color-background-primary); border-bottom: 1px solid var(--color-border-tertiary); }
+    .topbar-logo { display: flex; align-items: center; gap: 8px; }
+    .logo-box { width: 28px; height: 28px; background: #085041; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+    .logo-box svg { width: 16px; height: 16px; }
+    .logo-text { font-family: var(--font-serif); font-size: 18px; font-weight: 600; color: var(--color-text-primary); }
+    .logo-text span { color: #1D9E75; }
+    
+    .topbar-nav { display: flex; gap: 8px; }
+    .tnav { font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: 6px; color: var(--color-text-secondary); cursor: pointer; background: transparent; border: none; transition: 0.2s; }
+    .tnav:hover { background: var(--color-background-secondary); color: var(--color-text-primary); }
+    .tnav.active { background: #E1F5EE; color: #085041; font-weight: 600; }
+    
+    .topbar-right { display: flex; align-items: center; gap: 12px; }
+    .filter-select { font-size: 12px; font-weight: 500; padding: 7px 12px; border: 1px solid var(--color-border-secondary); border-radius: 6px; color: var(--color-text-primary); background: var(--color-background-primary); outline: none; cursor: pointer; }
+    .avatar { width: 32px; height: 32px; border-radius: 50%; background: #085041; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: white; }
+    
+    .body { display: grid; grid-template-columns: 220px 1fr; min-height: 700px; }
+    
+    .sidebar { background: var(--color-background-primary); border-right: 1px solid var(--color-border-tertiary); padding: 24px 0; }
+    .sidebar-section { margin-bottom: 24px; }
+    .sidebar-label { font-size: 10px; font-weight: 600; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.08em; padding: 0 24px; margin-bottom: 12px; }
+    .sitem { display: flex; align-items: center; gap: 12px; padding: 10px 24px; font-size: 13px; font-weight: 500; color: var(--color-text-secondary); cursor: pointer; border-right: 3px solid transparent; transition: 0.2s; }
+    .sitem:hover { background: var(--color-background-secondary); color: var(--color-text-primary); }
+    .sitem.active { background: #E1F5EE; color: #085041; border-right-color: #1D9E75; }
+    .sitem svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+    .main { padding: 24px 28px; background: var(--color-background-secondary); overflow-y: auto; height: 100%; max-height: 800px; }
+    
+    /* Loading Skeleton */
+    .skeleton { background: linear-gradient(90deg, var(--color-border-tertiary) 25%, #f1f5f9 50%, var(--color-border-tertiary) 75%); background-size: 200% 100%; animation: loading 1.5s infinite; border-radius: 4px; color: transparent !important; display: inline-block; min-width: 50px; }
+    @keyframes loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+    .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .kpi { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: 10px; padding: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+    .kpi-label { font-size: 11px; font-weight: 500; color: var(--color-text-secondary); margin-bottom: 8px; }
+    .kpi-val { font-family: var(--font-serif); font-size: 24px; font-weight: 600; color: var(--color-text-primary); line-height: 1.1; }
+    .kpi-sub { font-size: 11px; margin-top: 8px; font-weight: 500; }
+    .kpi-up { color: #1D9E75; }
+    .kpi-down { color: #E24B4A; }
+
+    .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+    .chart-card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: 12px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+    .card-title { font-family: var(--font-serif); font-size: 16px; font-weight: 600; color: var(--color-text-primary); margin-bottom: 6px; }
+    .card-sub { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 16px; }
+
+    .bottom-row { display: grid; grid-template-columns: 1fr 1.6fr; gap: 16px; margin-bottom: 24px; }
+    .seg-list { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+    .seg-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .seg-left { display: flex; align-items: center; gap: 8px; min-width: 110px; }
+    .seg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .seg-name { font-size: 12px; color: var(--color-text-secondary); }
+    .seg-bar-wrap { flex: 1; height: 6px; background: var(--color-border-tertiary); border-radius: 3px; }
+    .seg-bar { height: 100%; border-radius: 3px; }
+    .seg-val { font-size: 11px; color: var(--color-text-secondary); min-width: 65px; text-align: right; }
+    .seg-pct { font-size: 12px; font-weight: 600; color: var(--color-text-primary); min-width: 38px; text-align: right; }
+
+    .txn-table { width: 100%; font-size: 12px; border-collapse: collapse; table-layout: fixed; }
+    .txn-table th { font-size: 11px; font-weight: 600; color: var(--color-text-secondary); text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--color-border-tertiary); }
+    .txn-table td { padding: 12px 8px; border-bottom: 0.5px solid var(--color-border-tertiary); color: var(--color-text-primary); vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .txn-table tr:last-child td { border-bottom: none; }
+    .badge { display: inline-block; font-size: 10px; padding: 3px 8px; border-radius: 6px; font-weight: 500; }
+    .badge-g { background: #E1F5EE; color: #085041; border: 0.5px solid #9FE1CB; }
+    .badge-a { background: #FAEEDA; color: #633806; border: 0.5px solid #E8C18E; }
+    .badge-p { background: #EEEDFE; color: #3C3489; border: 0.5px solid #BDB7F0; }
+    .badge-b { background: #E6F1FB; color: #0C447C; border: 0.5px solid #A4CFF5; }
+    .badge-r { background: #FCEBEB; color: #791F1F; border: 0.5px solid #F5A9A9; }
+
+    .third-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+    .legend-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+    .leg-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--color-text-secondary); }
+    .leg-sq { width: 10px; height: 10px; border-radius: 2px; }
+    code { font-size: 10px; background: var(--color-background-tertiary); padding: 2px 6px; border-radius: 4px; color: #085041; }
+
+    .view-section { display: none; animation: fadeIn 0.3s ease-in-out; }
+    .view-section.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+  </style>
+</head>
+<body>
+<div class="dash">
+  <div class="topbar">
+    <div class="topbar-logo">
+      <div class="logo-box"><svg viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="4.5" stroke="white" stroke-width="1.3"/><path d="M7 4.5v3l1.8.9" stroke="white" stroke-width="1.2" stroke-linecap="round"/></svg></div>
+      <span class="logo-text">Zakat<span>Sight</span></span>
+    </div>
+    <div class="topbar-nav">
+      <button id="tnav-overview" class="tnav active" onclick="switchTab('overview')">Overview</button>
+      <button id="tnav-donatur" class="tnav" onclick="switchTab('donatur')">Donatur</button>
+      <button id="tnav-program" class="tnav" onclick="switchTab('program')">Program</button>
+      <button id="tnav-relawan" class="tnav" onclick="switchTab('relawan')">Relawan</button>
+      <button id="tnav-prediksi" class="tnav" onclick="switchTab('prediksi')">Prediksi AI</button>
+    </div>
+    <div class="topbar-right">
+      <select id="filter-year" class="filter-select" onchange="fetchDashboardData()">
+        <option value="all">Semua Tahun</option>
+        <option value="2026">2026</option>
+        <option value="2025">2025</option>
+        <option value="2024">2024</option>
+        <option value="2023">2023</option>
+        <option value="2022">2022</option>
+        <option value="2021">2021</option>
+      </select>
+      <select id="filter-month" class="filter-select" onchange="fetchDashboardData()">
+        <option value="all">Semua Bulan</option>
+        <option value="1">Januari</option>
+        <option value="2">Februari</option>
+        <option value="3">Maret</option>
+        <option value="4">April</option>
+        <option value="5">Mei</option>
+        <option value="6">Juni</option>
+        <option value="7">Juli</option>
+        <option value="8">Agustus</option>
+        <option value="9">September</option>
+        <option value="10">Oktober</option>
+        <option value="11">November</option>
+        <option value="12">Desember</option>
+      </select>
+      <div class="avatar">AD</div>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Analytics</div>
+        <div class="sitem active">
+          <svg viewBox="0 0 14 14" fill="none"><rect x="1" y="7" width="3" height="6" rx="0.5" fill="#1D9E75"/><rect x="5.5" y="4" width="3" height="9" rx="0.5" fill="#9FE1CB"/><rect x="10" y="1" width="3" height="12" rx="0.5" fill="#1D9E75"/></svg>
+          Dashboard Utama
+        </div>
+        <div class="sitem">
+          <svg viewBox="0 0 14 14" fill="none"><path d="M2 10L5 7l2.5 2L10 5l2.5 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Tren Penerimaan
+        </div>
+        <div class="sitem">
+          <svg viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.2"/><path d="M7 7l3-2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+          Forecasting KPI
+        </div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Segmentasi</div>
+        <div class="sitem">
+          <svg viewBox="0 0 14 14" fill="none"><circle cx="5" cy="5" r="3" stroke="currentColor" stroke-width="1.2"/><circle cx="10" cy="9" r="2.5" stroke="currentColor" stroke-width="1.2"/></svg>
+          Segmen Donatur
+        </div>
+        <div class="sitem">
+          <svg viewBox="0 0 14 14" fill="none"><rect x="1.5" y="3" width="11" height="8" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M5 6.5h4M5 8.5h2.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+          Penerima Manfaat
+        </div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Transparansi</div>
+        <div class="sitem">
+          <svg viewBox="0 0 14 14" fill="none"><path d="M2 11L7 3l5 8H2z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+          Penyaluran Dana
+        </div>
+        <div class="sitem">
+          <svg viewBox="0 0 14 14" fill="none"><rect x="2" y="2" width="10" height="10" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M5 5h4M5 7h4M5 9h2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+          Laporan Publik
+        </div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Wilayah</div>
+        <div class="sitem">
+          <svg viewBox="0 0 14 14" fill="none"><circle cx="7" cy="6" r="2.5" stroke="currentColor" stroke-width="1.2"/><path d="M7 1v1M7 10v1M1 6h1M12 6h1" stroke="currentColor" stroke-width="1" stroke-linecap="round"/><path d="M3.5 8.5C2.5 10 2 11 3 12s8-2 9-4-1-4.5-2-5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg>
+          Peta Sebaran
+        </div>
+        <div class="sitem">
+          <svg viewBox="0 0 14 14" fill="none"><path d="M2 2h4v4H2zM8 2h4v4H8zM2 8h4v4H2zM8 8h4v4H8z" stroke="currentColor" stroke-width="1.1" rx="0.5"/></svg>
+          Perbandingan Daerah
+        </div>
+      </div>
+    </div>
+
+    <div class="main">
+      <div id="view-overview" class="view-section active">
+      <!-- KPI Row -->
+      <div class="kpi-row">
+        <div class="kpi">
+          <div class="kpi-label">Total Nominal Diterima</div>
+          <div class="kpi-val"><span id="kpi-total-nominal" class="skeleton">Rp 00.0M</span></div>
+          <div class="kpi-sub" style="color:var(--color-text-secondary)">Berdasarkan Filter</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Jumlah Transaksi</div>
+          <div class="kpi-val"><span id="kpi-jumlah-transaksi" class="skeleton">000000</span></div>
+          <div class="kpi-sub kpi-up"><span id="kpi-donatur-unik" class="skeleton">0000</span> donatur unik</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Rata-rata Donasi</div>
+          <div class="kpi-val"><span id="kpi-rata-rata-donasi" class="skeleton">Rp 000rb</span></div>
+          <div class="kpi-sub" style="color:var(--color-text-secondary)">Per transaksi</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Puncak Penerimaan</div>
+          <div class="kpi-val"><span id="kpi-bulan-tertinggi-nama" class="skeleton">Bulan Tahun</span></div>
+          <div class="kpi-sub kpi-up"><span id="kpi-bulan-tertinggi-val" class="skeleton">Rp 0M</span></div>
+        </div>
+      </div>
+
+      <!-- Charts Row: Monthly trend only (Full Width) -->
+      <div class="charts-row" style="grid-template-columns: 1fr;">
+        <div class="chart-card">
+          <div class="card-title">Tren Penerimaan Donasi</div>
+          <div class="card-sub">Kolom: <code>nominal</code> × <code id="trend-label">waktu</code></div>
+          <div class="legend-row">
+            <span class="leg-item"><span class="leg-sq" style="background:#1D9E75;"></span>Nominal (Rp Juta)</span>
+          </div>
+          <div style="position:relative;width:100%;height:220px;"><canvas id="c1"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Third Row: Kategori + Channel + Bank -->
+      <div class="third-row">
+        <div class="chart-card">
+          <div class="card-title">Distribusi Kategori</div>
+          <div class="card-sub">Kolom: <code>kategori_program</code></div>
+          <div class="seg-list">
+            <div class="seg-item">
+              <div class="seg-left"><div class="seg-dot" style="background:#1D9E75;"></div><span class="seg-name">Zakat Maal</span></div>
+              <div class="seg-bar-wrap"><div class="seg-bar" style="width:60.1%;background:#1D9E75;"></div></div>
+              <span class="seg-pct">60,1%</span>
+            </div>
+            <div class="seg-item">
+              <div class="seg-left"><div class="seg-dot" style="background:#5DCAA5;"></div><span class="seg-name">Infak Terikat</span></div>
+              <div class="seg-bar-wrap"><div class="seg-bar" style="width:18.9%;background:#5DCAA5;"></div></div>
+              <span class="seg-pct">18,9%</span>
+            </div>
+            <div class="seg-item">
+              <div class="seg-left"><div class="seg-dot" style="background:#9FE1CB;"></div><span class="seg-name">Infak Bebas</span></div>
+              <div class="seg-bar-wrap"><div class="seg-bar" style="width:10.3%;background:#9FE1CB;"></div></div>
+              <span class="seg-pct">10,3%</span>
+            </div>
+            <div class="seg-item">
+              <div class="seg-left"><div class="seg-dot" style="background:#FAC775;"></div><span class="seg-name">Zakat Fitrah</span></div>
+              <div class="seg-bar-wrap"><div class="seg-bar" style="width:5.8%;background:#FAC775;"></div></div>
+              <span class="seg-pct">5,8%</span>
+            </div>
+            <div class="seg-item">
+              <div class="seg-left"><div class="seg-dot" style="background:#EF9F27;"></div><span class="seg-name">Fidyah</span></div>
+              <div class="seg-bar-wrap"><div class="seg-bar" style="width:2%;background:#EF9F27;"></div></div>
+              <span class="seg-pct">2,0%</span>
+            </div>
+            <div class="seg-item">
+              <div class="seg-left"><div class="seg-dot" style="background:#D3D1C7;"></div><span class="seg-name">Lainnya</span></div>
+              <div class="seg-bar-wrap"><div class="seg-bar" style="width:3.3%;background:#D3D1C7;"></div></div>
+              <span class="seg-pct">3,3%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="card-title">Top 8 Channel</div>
+          <div class="card-sub">Kolom: <code>channel</code> × <code>nominal</code></div>
+          <div style="position:relative;width:100%;height:185px;"><canvas id="c3" role="img"></canvas></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="card-title">Metode Transfer</div>
+          <div class="card-sub">Kolom: <code>bank</code> × <code>nominal</code></div>
+          <div class="legend-row">
+            <span class="leg-item"><span class="leg-sq" style="background:#1D9E75;"></span>BSI 74.4%</span>
+            <span class="leg-item"><span class="leg-sq" style="background:#5DCAA5;"></span>Sahabat 8.5%</span>
+            <span class="leg-item"><span class="leg-sq" style="background:#9FE1CB;"></span>BCA Syariah 6%</span>
+            <span class="leg-item"><span class="leg-sq" style="background:#FAC775;"></span>Muamalat 4%</span>
+            <span class="leg-item"><span class="leg-sq" style="background:#D3D1C7;"></span>Lain 6.9%</span>
+          </div>
+          <div style="position:relative;width:100%;height:140px;"><canvas id="c4" role="img"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Bottom Row: Top program + Transaksi terbaru -->
+      <div class="bottom-row">
+        <div class="chart-card">
+          <div class="card-title">Top Program Nominal</div>
+          <div class="card-sub">Berdasarkan data historis tahun terpilih</div>
+          <div class="seg-list">
+            <div class="seg-item">
+              <div class="seg-left"><div class="seg-dot" style="background:#1D9E75;"></div><span class="seg-name">Zakat Maal</span></div>
+              <div class="seg-bar-wrap"><div class="seg-bar" style="width:100%;background:#1D9E75;"></div></div>
+              <span class="seg-val">Rp 12,0M</span>
+            </div>
+            <div class="seg-item">
+              <div class="seg-left"><div class="seg-dot" style="background:#5DCAA5;"></div><span class="seg-name">Zakat Penghasilan</span></div>
+              <div class="seg-bar-wrap"><div class="seg-bar" style="width:19.4%;background:#5DCAA5;"></div></div>
+              <span class="seg-val">Rp 2,2M</span>
+            </div>
+            <div class="seg-item">
+              <div class="seg-left"><div class="seg-dot" style="background:#9FE1CB;"></div><span class="seg-name">Peduli Palestina</span></div>
+              <div class="seg-bar-wrap"><div class="seg-bar" style="width:12.9%;background:#9FE1CB;"></div></div>
+              <span class="seg-val">Rp 1,3M</span>
+            </div>
+            <div class="seg-item">
+              <div class="seg-left"><div class="seg-dot" style="background:#C0DD97;"></div><span class="seg-name">Tunaikan Zakat Maal</span></div>
+              <div class="seg-bar-wrap"><div class="seg-bar" style="width:11.7%;background:#C0DD97;"></div></div>
+              <span class="seg-val">Rp 1,4M</span>
+            </div>
+            <div class="seg-item">
+              <div class="seg-left"><div class="seg-dot" style="background:#FAC775;"></div><span class="seg-name">Zakat Fitrah</span></div>
+              <div class="seg-bar-wrap"><div class="seg-bar" style="width:11.3%;background:#FAC775;"></div></div>
+              <span class="seg-val">Rp 1,4M</span>
+            </div>
+            <div class="seg-item">
+              <div class="seg-left"><div class="seg-dot" style="background:#EF9F27;"></div><span class="seg-name">Bantuan Pendidikan</span></div>
+              <div class="seg-bar-wrap"><div class="seg-bar" style="width:8.3%;background:#EF9F27;"></div></div>
+              <span class="seg-val">Rp 1,0M</span>
+            </div>
+            <div class="seg-item">
+              <div class="seg-left"><div class="seg-dot" style="background:#B5D4F4;"></div><span class="seg-name">Infaq Sedekah</span></div>
+              <div class="seg-bar-wrap"><div class="seg-bar" style="width:6.6%;background:#B5D4F4;"></div></div>
+              <span class="seg-val">Rp 796jt</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="card-title">Live Transaksi Terbaru</div>
+          <div class="card-sub">Aliran masuk donasi yang tercatat sistem</div>
+          <table class="txn-table">
+            <thead>
+              <tr>
+                <th style="width:20%">Donatur</th>
+                <th style="width:18%">Nominal</th>
+                <th style="width:26%">Program</th>
+                <th style="width:18%">Channel</th>
+                <th style="width:18%">Tgl Donasi</th>
+              </tr>
+            </thead>
+            <tbody id="table-latest">
+              <tr><td colspan="5" class="skeleton" style="height:150px;width:100%;">Memuat data transaksi...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      </div>
+      
+      <!-- TAB: DONATUR -->
+      <div id="view-donatur" class="view-section">
+
+      <div class="kpi-row">
+        <div class="kpi">
+          <div class="kpi-label">Total Donatur Unik</div>
+          <div class="kpi-val">25.848</div>
+          <div class="kpi-sub kpi-up">+12% vs tahun lalu</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Donatur Aktif (3 bln)</div>
+          <div class="kpi-val">14.230</div>
+          <div class="kpi-sub kpi-up">55% Retention Rate</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Rata-rata Frekuensi</div>
+          <div class="kpi-val">2.3x</div>
+          <div class="kpi-sub" style="color:var(--color-text-secondary)">Per donatur aktif</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Churn Rate (Potensi)</div>
+          <div class="kpi-val">12.4%</div>
+          <div class="kpi-sub kpi-down">Target: < 15%</div>
+        </div>
+      </div>
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="card-title">Pertumbuhan Donatur Baru vs Lama</div>
+          <div class="card-sub">Tren bulanan</div>
+          <div style="position:relative;width:100%;height:220px;display:flex;align-items:center;justify-content:center;border:1px dashed var(--color-border-tertiary);border-radius:8px;background:var(--color-background-secondary);">
+            [Visualisasi Placeholder]
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="card-title">Top 5 Donatur Loyal</div>
+          <div class="card-sub">Berdasarkan Total Nominal & Frekuensi</div>
+          <table class="txn-table">
+            <thead><tr><th>Nama</th><th>Total Rp</th><th>Frekuensi</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td>Hamba Allah</td><td style="font-weight:600;color:#1D9E75;">Rp 45,2jt</td><td>12x</td><td><span class="badge badge-p">Champions</span></td></tr>
+              <tr><td>Ahmad F.</td><td style="font-weight:600;color:#1D9E75;">Rp 32,0jt</td><td>8x</td><td><span class="badge badge-g">Loyal</span></td></tr>
+              <tr><td>Budi S.</td><td style="font-weight:600;color:#1D9E75;">Rp 28,5jt</td><td>15x</td><td><span class="badge badge-p">Champions</span></td></tr>
+              <tr><td>Siti A.</td><td style="font-weight:600;color:#1D9E75;">Rp 15,4jt</td><td>5x</td><td><span class="badge badge-g">Loyal</span></td></tr>
+              <tr><td>Rina K.</td><td style="font-weight:600;color:#1D9E75;">Rp 12,1jt</td><td>10x</td><td><span class="badge badge-g">Loyal</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      </div>
+      
+      <!-- TAB: PROGRAM -->
+      <div id="view-program" class="view-section">
+
+      <div class="kpi-row">
+        <div class="kpi">
+          <div class="kpi-label">Total Program Aktif</div>
+          <div class="kpi-val">12</div>
+          <div class="kpi-sub" style="color:var(--color-text-secondary)">Kategori berbeda</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Program Tersukses</div>
+          <div class="kpi-val">Zakat Maal</div>
+          <div class="kpi-sub kpi-up">Rp 17,0M (60% Total)</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Rata-rata Pendanaan</div>
+          <div class="kpi-val">Rp 2,3M</div>
+          <div class="kpi-sub" style="color:var(--color-text-secondary)">Per Program</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Pertumbuhan Program</div>
+          <div class="kpi-val">+4</div>
+          <div class="kpi-sub kpi-up">Program baru tahun ini</div>
+        </div>
+      </div>
+      <div class="charts-row">
+        <div class="chart-card" style="grid-column: 1 / 3;">
+          <div class="card-title">Performa Pendanaan Antar Program</div>
+          <div class="card-sub">Komparasi pencapaian target per program prioritas</div>
+          <div style="position:relative;width:100%;height:220px;display:flex;align-items:center;justify-content:center;border:1px dashed var(--color-border-tertiary);border-radius:8px;background:var(--color-background-secondary);">
+            [Visualisasi Placeholder]
+          </div>
+        </div>
+      </div>
+      </div>
+      
+      <!-- TAB: RELAWAN -->
+      <div id="view-relawan" class="view-section">
+
+      <div class="kpi-row">
+        <div class="kpi">
+          <div class="kpi-label">Total Relawan/Channel</div>
+          <div class="kpi-val">142</div>
+          <div class="kpi-sub kpi-up">Tersebar di 8 Daerah</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Channel Tertinggi</div>
+          <div class="kpi-val">Al Araf MS</div>
+          <div class="kpi-sub kpi-up">Rp 3,56M Terkumpul</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Rata-rata Kontribusi</div>
+          <div class="kpi-val">Rp 199jt</div>
+          <div class="kpi-sub" style="color:var(--color-text-secondary)">Per Channel</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Relawan Baru</div>
+          <div class="kpi-val">15</div>
+          <div class="kpi-sub kpi-up">Bergabung bulan ini</div>
+        </div>
+      </div>
+      <div class="charts-row">
+        <div class="chart-card" style="grid-column: 1 / 3;">
+          <div class="card-title">Leaderboard Relawan & Channel</div>
+          <div class="card-sub">Top 10 Pengumpulan Terbesar</div>
+          <table class="txn-table">
+            <thead><tr><th style="width:5%">#</th><th style="width:30%">Nama Channel / Relawan</th><th style="width:25%">Daerah</th><th style="width:20%">Total Transaksi</th><th style="width:20%">Nominal</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>Al Araf MS</td><td>Depok S</td><td>3.402</td><td style="font-weight:600;color:#1D9E75;">Rp 3.562M</td></tr>
+              <tr><td>2</td><td>Sukmajaya</td><td>Depok P</td><td>4.120</td><td style="font-weight:600;color:#1D9E75;">Rp 3.467M</td></tr>
+              <tr><td>3</td><td>Beji</td><td>Margonda</td><td>2.980</td><td style="font-weight:600;color:#1D9E75;">Rp 2.954M</td></tr>
+              <tr><td>4</td><td>Cimanggis</td><td>Depok S</td><td>2.100</td><td style="font-weight:600;color:#1D9E75;">Rp 2.503M</td></tr>
+              <tr><td>5</td><td>Margonda</td><td>Margonda</td><td>1.850</td><td style="font-weight:600;color:#1D9E75;">Rp 2.313M</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      </div>
+      
+      <!-- TAB: PREDIKSI AI -->
+      <div id="view-prediksi" class="view-section">
+
+      <div class="kpi-row">
+        <div class="kpi">
+          <div class="kpi-label">Tingkat Akurasi Model AI</div>
+          <div class="kpi-val" style="display:flex;align-items:center;gap:8px;">94.2% <span class="badge badge-g" style="font-family:var(--font-sans);">High Confidence</span></div>
+          <div class="kpi-sub kpi-up">Teruji pada 10.000 transaksi terakhir</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Prediksi Bulan Depan</div>
+          <div class="kpi-val">Rp 2,1M</div>
+          <div class="kpi-sub" style="color:var(--color-text-secondary)">Bulan Juni 2026</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Potensi Churn Rate</div>
+          <div class="kpi-val" style="color:#E24B4A;">12.4%</div>
+          <div class="kpi-sub kpi-down">1.240 Donatur Resiko Tinggi (At-Risk)</div>
+        </div>
+        <div class="kpi" style="background-color: #E1F5EE; border-color: #9FE1CB;">
+          <div class="kpi-label" style="color:#085041;">Suggested Action (AI Prescriptive)</div>
+          <div class="kpi-val" style="font-size:14px; margin-top:4px;">
+            <button style="background:#1D9E75; color:white; border:none; padding:8px 12px; border-radius:6px; font-family:var(--font-sans); font-weight:600; font-size:12px; cursor:pointer; width:100%; display:flex; align-items:center; justify-content:center; gap:6px;">
+              <svg style="width:14px; height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg> 
+              Broadcast WA ke "At-Risk"
+            </button>
+          </div>
+          <div class="kpi-sub" style="color:#0F6E56; text-align:center; margin-top:8px;">Estimated Recovery: Rp 150jt</div>
+        </div>
+      </div>
+      <div class="charts-row">
+        <div class="chart-card" style="grid-column: 1 / 3;">
+          <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+            <span>Forecasting & Confidence Interval</span>
+            <button style="background:var(--color-background-secondary); color:var(--color-text-primary); border:0.5px solid var(--color-border-tertiary); padding:6px 12px; border-radius:6px; font-family:var(--font-sans); font-weight:500; font-size:11px; cursor:pointer;">
+              Export Proyeksi (CSV)
+            </button>
+          </div>
+          <div class="card-sub">Proyeksi penerimaan hingga Desember 2026 berdasarkan data historis ARIMA model</div>
+          <div style="position:relative;width:100%;height:250px;display:flex;align-items:center;justify-content:center;border:1px dashed var(--color-border-tertiary);border-radius:10px;background:var(--color-background-secondary);">
+            <canvas id="chart-prediksi" role="img" aria-label="Grafik prediksi AI"></canvas>
+            <div style="position:absolute; background:#FFFFFF; border:0.5px solid #1D9E75; padding:12px 16px; border-radius:8px; color:#0F6E56; font-size:12px; font-weight:500; display:flex; align-items:center; gap:8px; box-shadow: 0 4px 12px rgba(29,158,117,0.15);">
+              <svg style="width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+              Insight: Penurunan tren diprediksi pada Agustus. Siapkan campaign mitigasi di bulan Juli.
+            </div>
+          </div>
+        </div>
+      </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+function switchTab(tabId) {
+  document.querySelectorAll('.tnav').forEach(btn => btn.classList.remove('active'));
+  document.getElementById('tnav-' + tabId).classList.add('active');
+  document.querySelectorAll('.view-section').forEach(view => view.classList.remove('active'));
+  document.getElementById('view-' + tabId).classList.add('active');
+}
+
+let chart1, chart3, chart4;
+
+function initEmptyCharts() {
+  const fontFamily = "'Plus Jakarta Sans', sans-serif";
+  const tickColor = '#64748B';
+  const gridColor = '#E2E8F0';
+
+  const tooltipStyle = {
+    backgroundColor: '#0F172A', titleColor: '#FFFFFF', bodyColor: '#FFFFFF', padding: 12, borderRadius: 6
+  };
+
+  chart1 = new Chart(document.getElementById('c1').getContext('2d'), {
+    type: 'line',
+    data: { labels: [], datasets: [{ label: 'Nominal', data: [], borderColor: '#1D9E75', backgroundColor: 'rgba(29, 158, 117, 0.1)', borderWidth: 2, fill: true, tension: 0.4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { ...tooltipStyle, callbacks: { label: v => 'Rp ' + v.raw.toLocaleString('id') + ' jt' } } },
+      scales: { x: { ticks: { font: { family: fontFamily, size: 11 }, color: tickColor }, grid: { display: false } }, y: { ticks: { font: { family: fontFamily, size: 11 }, color: tickColor }, grid: { color: gridColor } } }
+    }
+  });
+
+  chart3 = new Chart(document.getElementById('c3').getContext('2d'), {
+    type: 'bar',
+    data: { labels: [], datasets: [{ data: [], backgroundColor: '#1D9E75', borderRadius: 4, barThickness: 14 }] },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { ...tooltipStyle, callbacks: { label: v => 'Rp ' + v.raw.toLocaleString('id') + ' jt' } } },
+      scales: { x: { ticks: { font: { family: fontFamily, size: 11 }, color: tickColor }, grid: { color: gridColor } }, y: { ticks: { font: { family: fontFamily, size: 11 }, color: tickColor }, grid: { display: false } } }
+    }
+  });
+
+  chart4 = new Chart(document.getElementById('c4').getContext('2d'), {
+    type: 'bar',
+    data: { labels: [], datasets: [{ data: [], backgroundColor: '#1D9E75', borderRadius: 4, barThickness: 14 }] },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { ...tooltipStyle, callbacks: { label: v => v.raw + '%' } } },
+      scales: { x: { ticks: { font: { family: fontFamily, size: 11 }, color: tickColor }, grid: { color: gridColor } }, y: { ticks: { font: { family: fontFamily, size: 11 }, color: tickColor }, grid: { display: false } } }
+    }
+  });
+}
+
+function removeSkeleton(id, val) {
+  const el = document.getElementById(id);
+  if(el) {
+    el.classList.remove('skeleton');
+    el.innerText = val;
+  }
+}
+
+async function fetchDashboardData() {
+  const year = document.getElementById('filter-year').value;
+  const month = document.getElementById('filter-month').value;
+  
+  // Re-add skeletons for text fields
+  const kpis = ['kpi-total-nominal', 'kpi-jumlah-transaksi', 'kpi-donatur-unik', 'kpi-rata-rata-donasi', 'kpi-bulan-tertinggi-nama', 'kpi-bulan-tertinggi-val'];
+  kpis.forEach(id => { const el = document.getElementById(id); if(el) el.classList.add('skeleton'); });
+  
+  document.getElementById('trend-label').innerText = year === 'all' ? 'tahun' : 'bulan';
+
+  try {
+    const response = await fetch(`/api/dashboard?year=${year}&month=${month}`);
+    if (!response.ok) throw new Error('Network error');
+    const stats = await response.json();
+    
+    // Update KPIs
+    removeSkeleton('kpi-total-nominal', stats.total_nominal_str);
+    removeSkeleton('kpi-jumlah-transaksi', stats.jumlah_transaksi);
+    removeSkeleton('kpi-donatur-unik', stats.donatur_unik);
+    removeSkeleton('kpi-rata-rata-donasi', stats.rata_rata_donasi_str);
+    removeSkeleton('kpi-bulan-tertinggi-nama', stats.bulan_tertinggi_nama);
+    removeSkeleton('kpi-bulan-tertinggi-val', stats.bulan_tertinggi_val);
+
+    // Update Chart 1 (Trend)
+    chart1.data.labels = stats.monthly_labels;
+    chart1.data.datasets[0].data = stats.monthly_data;
+    chart1.update();
+
+    // Update Chart 3 (Channel)
+    chart3.data.labels = stats.channel_labels;
+    chart3.data.datasets[0].data = stats.channel_data;
+    chart3.update();
+
+    // Update Chart 4 (Bank)
+    chart4.data.labels = stats.bank_labels;
+    chart4.data.datasets[0].data = stats.bank_data;
+    chart4.update();
+    
+    // Update Recent Txns Table
+    const tbody = document.getElementById('table-latest');
+    tbody.innerHTML = '';
+    stats.latest_txns.forEach(txn => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${txn.donatur}</td>
+        <td style="font-weight:600;color:#1D9E75;">${txn.nominal}</td>
+        <td><span class="badge badge-g">${txn.program}</span></td>
+        <td>${txn.channel}</td>
+        <td style="color:var(--color-text-secondary);">${txn.tgl}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+  } catch (error) {
+    console.error('Failed to fetch data:', error);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  initEmptyCharts();
+  fetchDashboardData();
+});
+</script>
+</body>
+</html>
