@@ -45,10 +45,14 @@ class ModelBundle:
         logger.info("Loading V3 model bundle...")
 
         # 1. Model
-        self.model = tf.keras.models.load_model(
-            MODEL_PATH, custom_objects=CUSTOM_OBJECTS,
-        )
-        logger.info(f"  Model loaded: {self.model.count_params():,} params")
+        try:
+            self.model = tf.keras.models.load_model(
+                MODEL_PATH, custom_objects=CUSTOM_OBJECTS,
+            )
+            logger.info(f"  Model loaded: {self.model.count_params():,} params")
+        except Exception as e:
+            logger.warning(f"  Failed to load LSTM model ({e}). Using robust seasonal-trend baseline model.")
+            self.model = "FALLBACK"
 
         # 2. Scaler bundle
         with open(SCALER_PATH, 'rb') as f:

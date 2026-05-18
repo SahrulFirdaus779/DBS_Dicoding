@@ -58,9 +58,15 @@ try:
     col_penerimaan.create_index([("program", 1)])
     col_penerimaan.create_index([("donatur", 1)])
     col_penerimaan.create_index([("tgl_dt", 1), ("channel", 1)])
+    col_penerimaan.create_index([("tgl_dt", -1), ("channel", 1), ("kategori_program", 1)])
+    
     col_mustahiq.create_index([("status_penyaluran", 1)])
     col_mustahiq.create_index([("kategori_asnaf", 1)])
-    print("[OK] MongoDB indexes ensured.")
+    col_mustahiq.create_index([("tgl_dt", -1), ("channel", 1)])
+    col_mustahiq.create_index([("nama_mustahiq", 1)])
+    col_mustahiq.create_index([("program", 1)])
+    col_mustahiq.create_index([("relawan", 1)])
+    print("[OK] MongoDB optimal indexes ensured.")
 except Exception as e:
     print(f"[WARN] Index creation skipped: {e}")
 
@@ -93,7 +99,7 @@ def validate_year_month(year, month):
     month = month if month in valid_months else 'all'
     return year, month
 
-def build_match(year, month):
+def build_match(year, month, channel='all', category='all'):
     """Build MongoDB $match stage dari filter."""
     match = {}
     if year != 'all':
@@ -104,13 +110,42 @@ def build_match(year, month):
                                 "$lt":  datetime(y,m+1,1) if m < 12 else datetime(y+1,1,1)}
         else:
             match["tgl_dt"] = {"$gte": datetime(y,1,1), "$lt": datetime(y+1,1,1)}
+            
+    if channel and channel != 'all':
+        match["channel"] = channel
+        
+    if category and category != 'all':
+        match["kategori_program"] = category
+        
     return match
+
+def etag_cached(f):
+    """Decorator untuk mengimplementasikan HTTP ETag conditional GET caching."""
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        res = f(*args, **kwargs)
+        if res.status_code == 200:
+            import hashlib
+            from flask import make_response
+            content = res.get_data()
+            etag_hash = f'"{hashlib.md5(content).hexdigest()}"'
+            
+            if_none_match = request.headers.get("If-None-Match")
+            if if_none_match and if_none_match == etag_hash:
+                resp = make_response("", 304)
+                resp.headers["ETag"] = etag_hash
+                return resp
+                
+            res.headers["ETag"] = etag_hash
+        return res
+    return decorated_function
 
 # ─────────────────────────────────────────────────────────────
 # DASHBOARD INTERNAL
 # ─────────────────────────────────────────────────────────────
-def get_dashboard_stats(year='all', month='all'):
-    match = build_match(year, month)
+def get_dashboard_stats(year='all', month='all', channel='all', category='all'):
+    match = build_match(year, month, channel, category)
     pipeline = [{"$match": match}] if match else []
 
     stats = {
@@ -300,8 +335,8 @@ def cached(key, fn, ttl=CACHE_TTL):
 # ─────────────────────────────────────────────────────────────
 # ANALYTICS ENDPOINTS
 # ─────────────────────────────────────────────────────────────
-def analytics_donatur(year='all', month='all'):
-    match = build_match(year, month)
+def analytics_donatur(year='all', month='all', channel='all', category='all'):
+    match = build_match(year, month, channel, category)
     filter_q = match if match else {}
 
     # KPI
@@ -392,8 +427,8 @@ def analytics_donatur(year='all', month='all'):
         "freq_data":   [f['count'] for f in freq_dist],
     }
 
-def analytics_program(year='all', month='all'):
-    match = build_match(year, month)
+def analytics_program(year='all', month='all', channel='all', category='all'):
+    match = build_match(year, month, channel, category)
     filter_q = match if match else {}
     programs = list(col_penerimaan.aggregate([
         {"$match": filter_q} if filter_q else {"$match": {}},
@@ -415,24 +450,58 @@ def analytics_program(year='all', month='all'):
         ]
     }
 
-def analytics_relawan(year='all', month='all'):
-    match = build_match(year, month)
+def analytics_relawan(year='all', month='all', channel='all', category='all'):
+    match = build_match(year, month, channel, category)
     filter_q = match if match else {}
+    
+    # Leaderboard Channel
     channels = list(col_penerimaan.aggregate([
         {"$match": filter_q} if filter_q else {"$match": {}},
         {"$group": {"_id": "$channel", "total": {"$sum":"$nominal"}, "txn": {"$sum":1}}},
         {"$sort": {"total": -1}},
         {"$limit": 15}
     ]))
-    total_all = sum(c['total'] for c in channels) or 1
+    total_all_channel = sum(c['total'] for c in channels) or 1
+    
+    # Leaderboard Relawan
+    volunteers = list(col_penerimaan.aggregate([
+        {"$match": filter_q} if filter_q else {"$match": {}},
+        {"$group": {
+            "_id": "$relawan",
+            "kode": {"$first": "$kode_relawan"},
+            "channel": {"$first": "$channel"},
+            "total": {"$sum": "$nominal"},
+            "txn": {"$sum": 1}
+        }},
+        {"$sort": {"total": -1}},
+        {"$limit": 15}
+    ]))
+    total_all_vol = sum(v['total'] for v in volunteers) or 1
+    
+    # Total unique volunteers active under this filter
+    try:
+        total_relawan = len(col_penerimaan.distinct("relawan", filter_q))
+    except Exception:
+        total_relawan = 0
+        
     return {
         "total_channel": len(channels),
+        "total_relawan": total_relawan,
         "leaderboard": [
             {"rank": i+1,
              "nama": str(c['_id'])[:25] if c['_id'] else "Unknown",
              "total_str": format_rp(c['total']), "txn": c['txn'],
-             "pct": round((c['total']/total_all)*100, 1)}
+             "pct": round((c['total']/total_all_channel)*100, 1)}
             for i, c in enumerate(channels)
+        ],
+        "leaderboard_relawan": [
+            {"rank": i+1,
+             "nama": str(v['_id'])[:25] if v['_id'] else "Unknown",
+             "kode": str(v['kode']) if v.get('kode') else "-",
+             "channel": str(v['channel'])[:20] if v.get('channel') else "-",
+             "total_str": format_rp(v['total']), "txn": v['txn'],
+             "pct": round((v['total']/total_all_vol)*100, 1)}
+            for i, v in enumerate(volunteers)
         ]
     }
 
@@ -455,31 +524,170 @@ def api_public_stats():
     return jsonify(data)
 
 @app.route('/api/dashboard')
+@etag_cached
 def api_dashboard():
-    year, month = validate_year_month(
-        request.args.get('year','all'),
-        request.args.get('month','all')
-    )
-    cache_key = f"dash_{year}_{month}"
-    return jsonify(cached(cache_key, lambda: get_dashboard_stats(year, month)))
+    year, month = validate_year_month(request.args.get('year','all'), request.args.get('month','all'))
+    channel = request.args.get('channel', 'all')
+    category = request.args.get('category', 'all')
+    cache_key = f"dash_{year}_{month}_{channel}_{category}"
+    return jsonify(cached(cache_key, lambda: get_dashboard_stats(year, month, channel, category)))
 
 @app.route('/api/analytics/donatur')
+@etag_cached
 def api_analytics_donatur():
     year, month = validate_year_month(request.args.get('year','all'), request.args.get('month','all'))
-    key = f"donatur_{year}_{month}"
-    return jsonify(cached(key, lambda: analytics_donatur(year, month)))
+    channel = request.args.get('channel', 'all')
+    category = request.args.get('category', 'all')
+    key = f"donatur_{year}_{month}_{channel}_{category}"
+    return jsonify(cached(key, lambda: analytics_donatur(year, month, channel, category)))
 
 @app.route('/api/analytics/program')
+@etag_cached
 def api_analytics_program():
     year, month = validate_year_month(request.args.get('year','all'), request.args.get('month','all'))
-    key = f"program_{year}_{month}"
-    return jsonify(cached(key, lambda: analytics_program(year, month)))
+    channel = request.args.get('channel', 'all')
+    category = request.args.get('category', 'all')
+    key = f"program_{year}_{month}_{channel}_{category}"
+    return jsonify(cached(key, lambda: analytics_program(year, month, channel, category)))
 
 @app.route('/api/analytics/relawan')
+@etag_cached
 def api_analytics_relawan():
     year, month = validate_year_month(request.args.get('year','all'), request.args.get('month','all'))
-    key = f"relawan_{year}_{month}"
-    return jsonify(cached(key, lambda: analytics_relawan(year, month)))
+    channel = request.args.get('channel', 'all')
+    category = request.args.get('category', 'all')
+    key = f"relawan_{year}_{month}_{channel}_{category}"
+    return jsonify(cached(key, lambda: analytics_relawan(year, month, channel, category)))
+
+# ── Analytics Penerima Manfaat (Mustahiq) ──────────────────────
+def analytics_penerima(year='all', month='all', channel='all', category='all'):
+    match = build_match(year, month, channel, category)
+    pipeline = [{"$match": match}] if match else []
+
+    # 1. Total Mustahiq (distinct mustahiq_id)
+    try:
+        filter_q = match if match else {}
+        total_mustahiq = len(col_mustahiq.distinct("mustahiq_id", filter_q))
+    except Exception:
+        total_mustahiq = 0
+
+    # 2. Total nominal disalurkan & avg & count
+    nominal_res = list(col_mustahiq.aggregate(pipeline + [
+        {"$group": {
+            "_id": None,
+            "total_disalurkan": {"$sum": "$nominal_disalurkan"},
+            "avg_disalurkan": {"$avg": "$nominal_disalurkan"},
+            "count": {"$sum": 1}
+        }}
+    ]))
+
+    total_disalurkan = 0
+    avg_disalurkan = 0
+    if nominal_res:
+        total_disalurkan = nominal_res[0].get('total_disalurkan', 0) or 0
+        avg_disalurkan = nominal_res[0].get('avg_disalurkan', 0) or 0
+
+    # 3. Status Penyaluran breakdown
+    status_res = list(col_mustahiq.aggregate(pipeline + [
+        {"$group": {"_id": "$status_penyaluran", "count": {"$sum": 1}}}
+    ]))
+    status_breakdown = {s['_id'] or "Unknown": s['count'] for s in status_res}
+    total_tx = sum(status_breakdown.values()) or 1
+    tersalurkan_count = status_breakdown.get("Tersalurkan", 0)
+    pct_tersalurkan = round((tersalurkan_count / total_tx) * 100, 1)
+
+    # 4. Sebaran Asnaf (nominal)
+    asnaf_res = list(col_mustahiq.aggregate(pipeline + [
+        {"$group": {"_id": "$kategori_asnaf", "nominal": {"$sum": "$nominal_disalurkan"}}},
+        {"$sort": {"nominal": -1}},
+        {"$limit": 6}
+    ]))
+    asnaf_labels = [str(a['_id']) if a['_id'] else 'Lainnya' for a in asnaf_res]
+    asnaf_data = [round(a['nominal']/1_000_000, 2) for a in asnaf_res]
+
+    # 5. Sebaran Wilayah / Channel (nominal)
+    wilayah_res = list(col_mustahiq.aggregate(pipeline + [
+        {"$group": {"_id": "$channel", "nominal": {"$sum": "$nominal_disalurkan"}}},
+        {"$sort": {"nominal": -1}},
+        {"$limit": 8}
+    ]))
+    wilayah_labels = [str(w['_id'])[:15] if w['_id'] else 'Lainnya' for w in wilayah_res]
+    wilayah_data = [round(w['nominal']/1_000_000, 2) for w in wilayah_res]
+
+    return {
+        "total_mustahiq": total_mustahiq,
+        "total_disalurkan_str": format_rp(total_disalurkan),
+        "avg_disalurkan_str": format_rp(avg_disalurkan),
+        "pct_tersalurkan": pct_tersalurkan,
+        "asnaf_labels": asnaf_labels,
+        "asnaf_data": asnaf_data,
+        "wilayah_labels": wilayah_labels,
+        "wilayah_data": wilayah_data
+    }
+
+@app.route('/api/filters')
+@etag_cached
+def api_filters():
+    channels = sorted([c for c in col_penerimaan.distinct("channel") if c])
+    categories = sorted([c for c in col_penerimaan.distinct("kategori_program") if c])
+    return jsonify({
+        "channels": channels,
+        "categories": categories
+    })
+
+@app.route('/api/analytics/penerima')
+@etag_cached
+def api_analytics_penerima():
+    year, month = validate_year_month(request.args.get('year','all'), request.args.get('month','all'))
+    channel = request.args.get('channel', 'all')
+    category = request.args.get('category', 'all')
+    key = f"penerima_{year}_{month}_{channel}_{category}"
+    return jsonify(cached(key, lambda: analytics_penerima(year, month, channel, category)))
+
+@app.route('/api/penerima/list')
+def api_penerima_list():
+    year, month = validate_year_month(request.args.get('year','all'), request.args.get('month','all'))
+    channel = request.args.get('channel', 'all')
+    category = request.args.get('category', 'all')
+    page = max(1, int(request.args.get('page', 1)))
+    limit = min(50, int(request.args.get('limit', 10)))
+    search = request.args.get('search', '').strip()
+
+    match = build_match(year, month, channel, category)
+    if search:
+        match["$or"] = [
+            {"nama_mustahiq": {"$regex": search, "$options": "i"}},
+            {"mustahiq_id": {"$regex": search, "$options": "i"}},
+            {"program": {"$regex": search, "$options": "i"}},
+            {"relawan": {"$regex": search, "$options": "i"}},
+            {"channel": {"$regex": search, "$options": "i"}},
+        ]
+
+    total = col_mustahiq.count_documents(match)
+    cursor = col_mustahiq.find(match).sort("tgl_dt", -1).skip((page-1)*limit).limit(limit)
+
+    items = []
+    for doc in cursor:
+        tgl = doc['tgl_dt'].strftime('%d %b %Y') if doc.get('tgl_dt') else '-'
+        items.append({
+            'mustahiq_id': doc.get('mustahiq_id', '-'),
+            'nama': doc.get('nama_mustahiq', doc.get('nama', 'Penerima Manfaat')),
+            'asnaf': doc.get('kategori_asnaf', '-'),
+            'program': doc.get('program', '-'),
+            'nominal': format_rp(doc.get('nominal_disalurkan', 0)),
+            'status': doc.get('status_penyaluran', 'Pending'),
+            'channel': doc.get('channel', '-'),
+            'relawan': doc.get('relawan', '-'),
+            'tgl': tgl
+        })
+
+    return jsonify({
+        "items": items,
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "total_pages": (total + limit - 1) // limit
+    })
 
 @app.route('/api/cache/clear', methods=['POST'])
 def api_cache_clear():
@@ -495,11 +703,13 @@ def api_cache_clear():
 def api_dashboard_txns():
     """Endpoint paginated untuk tabel transaksi."""
     year, month = validate_year_month(request.args.get('year','all'), request.args.get('month','all'))
+    channel = request.args.get('channel', 'all')
+    category = request.args.get('category', 'all')
     page   = max(1, int(request.args.get('page', 1)))
     limit  = min(50, int(request.args.get('limit', 10)))
     search = request.args.get('search', '').strip()
 
-    match = build_match(year, month)
+    match = build_match(year, month, channel, category)
     if search:
         match["$or"] = [
             {"donatur":  {"$regex": search, "$options": "i"}},
@@ -536,6 +746,58 @@ def index():
 @app.route('/transparansi')
 def public_dashboard():
     return render_template('public.html')
+
+@app.route('/api/forecast/kpis')
+@etag_cached
+def api_forecast_kpis():
+    """Mengambil hasil forecasting dari FastAPI dan merangkumnya menjadi KPI harian, mingguan, bulanan, tahunan."""
+    import requests
+    
+    FORECAST_URL = "http://localhost:8000"
+    
+    # 1. Harian (Esok)
+    daily_pred = 0
+    try:
+        r_daily = requests.post(f"{FORECAST_URL}/forecast/tomorrow", json={}, timeout=3)
+        if r_daily.ok:
+            data = r_daily.json()
+            daily_pred = data.get("forecast", {}).get("predicted_rupiah", 0)
+    except Exception as e:
+        print(f"[WARN] Failed to fetch daily forecast: {e}")
+        
+    # 2. Mingguan (7 Hari), Bulanan (30 Hari), Tahunan (30 Hari -> di-annualize)
+    weekly_pred = 0
+    monthly_pred = 0
+    yearly_pred = 0
+    try:
+        # Forecast 30 hari sekaligus agar cepat dan efisien (timeout ditingkatkan menjadi 15s)
+        r_range = requests.post(f"{FORECAST_URL}/forecast/range", json={"n_days": 30}, timeout=15)
+        if r_range.ok:
+            data = r_range.json()
+            forecasts = data.get("forecasts", [])
+            
+            # Mingguan = sum 7 hari pertama
+            weekly_pred = sum(f.get("predicted_rupiah", 0) for f in forecasts[:7])
+            
+            # Bulanan = sum 30 hari pertama
+            monthly_pred = sum(f.get("predicted_rupiah", 0) for f in forecasts[:30])
+            
+            # Tahunan = annualized dari average daily nominal
+            avg_daily = data.get("avg_daily_rupiah", 0)
+            yearly_pred = avg_daily * 365
+    except Exception as e:
+        print(f"[WARN] Failed to fetch range forecast: {e}")
+        
+    return jsonify({
+        "harian": format_rp(daily_pred),
+        "harian_raw": daily_pred,
+        "mingguan": format_rp(weekly_pred),
+        "mingguan_raw": weekly_pred,
+        "bulanan": format_rp(monthly_pred),
+        "bulanan_raw": monthly_pred,
+        "tahunan": format_rp(yearly_pred),
+        "tahunan_raw": yearly_pred,
+    })
 
 if __name__ == '__main__':
     app.run(debug=FLASK_DEBUG, port=FLASK_PORT)

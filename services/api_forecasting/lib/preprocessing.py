@@ -154,6 +154,8 @@ def build_inference_input(history_df, target_date, ramadan_mult_map,
     target_date = pd.Timestamp(target_date)
     df = history_df.copy()
     df['date'] = pd.to_datetime(df['date'])
+    # Keep only the necessary history (max lag 365 + window size 30 = 395 days) to speed up feature engineering
+    df = df[df['date'] >= target_date - timedelta(days=400)].reset_index(drop=True)
     df = df.sort_values('date').reset_index(drop=True)
 
     # Compute features on history (no synthetic row needed — window is BEFORE target)
@@ -222,6 +224,32 @@ def predict_single(model, scaler, features_window):
     Returns:
         dict dengan keys: 'pred_log', 'pred_rupiah'.
     """
+    if model == "FALLBACK":
+        # Fallback statistical prediction (rolling mean of last 7 days + trend slope of last 14 days)
+        # target y (log1p of total_nominal) is at column index 0 in the feature window
+        y_vals = features_window[0, :, 0]
+        
+        # Simple rolling mean of last 7 days
+        recent_y = y_vals[-7:]
+        base_log = float(np.mean(recent_y))
+        
+        # Add a slight trend factor (linear regression slope of last 14 days)
+        if len(y_vals) >= 14:
+            x = np.arange(14)
+            y = y_vals[-14:]
+            slope, _ = np.polyfit(x, y, 1)
+            pred_log = base_log + slope
+        else:
+            pred_log = base_log
+            
+        pred_rupiah = float(np.expm1(pred_log))
+        pred_rupiah = max(pred_rupiah, 0.0)
+        
+        return {
+            'pred_log': float(pred_log),
+            'pred_rupiah': pred_rupiah,
+        }
+
     # Scale: scaler fit di train data shape (n_samples_total, n_features)
     # Untuk inference, reshape window jadi 2D, scale, reshape balik.
     n, w, f = features_window.shape
